@@ -8,8 +8,25 @@ const ALLOWED_IMG_HOSTS = ["raw.githubusercontent.com", "user-images.githubuserc
 
 const SITE = import.meta.env.BASE_URL.replace(/\/$/, "");
 
+/**
+ * Charge les données d'abord depuis GitHub raw : une astuce publiée via /admin
+ * apparaît immédiatement, sans attendre un redéploiement. Repli sur la copie
+ * embarquée du site si GitHub est indisponible.
+ */
+async function fetchWithFallback(rawPath: string, bundledPath: string): Promise<Response> {
+  try {
+    const res = await fetch(rawPath, { cache: "no-store" });
+    if (res.ok) return res;
+  } catch {
+    /* réseau bloqué → repli */
+  }
+  return fetch(bundledPath);
+}
+
+const RAW = `https://raw.githubusercontent.com/${REPO}/${BRANCH}/public/data/astuces`;
+
 export async function fetchIndex(): Promise<TipsIndex> {
-  const res = await fetch(`${SITE}/data/astuces/index.json`);
+  const res = await fetchWithFallback(`${RAW}/index.json`, `${SITE}/data/astuces/index.json`);
   if (!res.ok) throw new Error(`Index indisponible (${res.status})`);
   return res.json();
 }
@@ -18,7 +35,7 @@ export async function fetchTip(slug: string): Promise<Tip> {
   const idx = await fetchIndex();
   const meta = idx.tips.find((t) => t.slug === slug);
   if (!meta) throw new Error("Astuce introuvable");
-  const res = await fetch(`${SITE}/data/astuces/${slug}.md`);
+  const res = await fetchWithFallback(`${RAW}/${slug}.md`, `${SITE}/data/astuces/${slug}.md`);
   if (!res.ok) throw new Error(`Contenu indisponible (${res.status})`);
   const content = await res.text();
   return { ...meta, content };
