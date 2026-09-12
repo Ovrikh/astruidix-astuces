@@ -3,10 +3,10 @@ import { useState } from "react";
 import type { TipMeta } from "../types";
 
 const catColors: Record<string, string> = {
-  Web: "border-redhot-500/40 bg-redhot-900/40 text-redhot-400",
+  Web: "border-redhot-500/40 bg-redhot-900/40 text-redhot-600 dark:text-redhot-400",
   Linux: "border-ink-600 bg-ink-800 text-bone-100",
-  Android: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
-  Outils: "border-sky-500/30 bg-sky-500/10 text-sky-400",
+  Android: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400",
+  Outils: "border-sky-500/30 bg-sky-500/10 text-sky-700 dark:text-sky-400",
   Divertissement: "border-violet-500/35 bg-violet-500/10 text-violet-700 dark:text-violet-300",
   Divers: "border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300",
 };
