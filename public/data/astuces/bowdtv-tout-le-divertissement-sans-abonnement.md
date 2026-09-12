@@ -43,3 +43,4 @@ Chaque rencontre est accompagnée de son horaire et des chaînes disponibles, po
 
 > **BowdTV, c’est le réflexe tout-en-un pour regarder ce qui vous plaît, quand l’envie arrive.**
 ## [Accéder au site](https://bowdtv.com)
+![Mascotte BowdTV](https://github.com/user-attachments/assets/8a66a9ed-6671-416e-9c21-b6cee144bc9d)
