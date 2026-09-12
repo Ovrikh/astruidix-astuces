@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { PUBLISH_HELP, fetchIndex, publishTip } from "../lib/api";
+import { PUBLISH_HELP, fetchIndex, fetchTip, publishTip } from "../lib/api";
 import type { TipMeta } from "../types";
 import { slugify } from "../lib/slugify";
 import Markdown from "../components/Markdown";
@@ -29,11 +29,15 @@ export default function Admin() {
   const [excerpt, setExcerpt] = useState("");
   const [markdown, setMarkdown] = useState("");
   const [preview, setPreview] = useState(false);
+  const [editingSlug, setEditingSlug] = useState<string | null>(null);
+  const [showExisting, setShowExisting] = useState(false);
+  const [existingTips, setExistingTips] = useState<TipMeta[]>([]);
+  const [loadingExisting, setLoadingExisting] = useState(false);
+  const [publishedDate, setPublishedDate] = useState(() => new Date().toISOString().slice(0, 10));
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
-  const slug = useMemo(() => slugify(title) || "nouvelle-astuce", [title]);
-  const date = useMemo(() => new Date().toISOString().slice(0, 10), []);
+  const slug = useMemo(() => (editingSlug ?? slugify(title)) || "nouvelle-astuce", [editingSlug, title]);
   const wordCount = useMemo(
     () => markdown.trim().split(/\s+/).filter(Boolean).length,
     [markdown]
@@ -80,6 +84,57 @@ export default function Admin() {
     }
   }
 
+  function resetEditor() {
+    setEditingSlug(null);
+    setTitle("");
+    setCategory(CAT_CHOICES[0]);
+    setIcon("");
+    setIconQuery("");
+    setExcerpt("");
+    setMarkdown("");
+    setPublishedDate(new Date().toISOString().slice(0, 10));
+    setPreview(false);
+  }
+
+  async function toggleExistingTips() {
+    const nextVisible = !showExisting;
+    setShowExisting(nextVisible);
+    if (!nextVisible || existingTips.length > 0) return;
+    setLoadingExisting(true);
+    setMsg(null);
+    try {
+      const index = await fetchIndex();
+      setExistingTips(index.tips);
+    } catch {
+      setMsg({ ok: false, text: "Impossible de charger les astuces existantes." });
+    } finally {
+      setLoadingExisting(false);
+    }
+  }
+
+  async function editTip(meta: TipMeta) {
+    setBusy(true);
+    setMsg(null);
+    try {
+      const tip = await fetchTip(meta.slug);
+      setEditingSlug(tip.slug);
+      setTitle(tip.title);
+      setCategory(tip.category);
+      setIcon(tip.icon ?? "");
+      setIconQuery(tip.icon ?? "");
+      setExcerpt(tip.excerpt ?? "");
+      setMarkdown(tip.content);
+      setPublishedDate(tip.date);
+      setShowExisting(false);
+      setPreview(false);
+      setMsg({ ok: true, text: `Modification de « ${tip.title} » : enregistrez pour publier vos changements.` });
+    } catch {
+      setMsg({ ok: false, text: "Impossible de charger cette astuce." });
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function publish() {
     setBusy(true);
     setMsg(null);
@@ -90,19 +145,16 @@ export default function Admin() {
         title: title.trim() || "Sans titre",
         category,
         icon: icon || undefined,
-        date,
+        date: publishedDate,
         excerpt: excerpt.trim() || undefined,
       };
-      const sha = await publishTip({ token, meta, markdown, existingTips: idx.tips });
+      const sha = await publishTip({ token, meta, markdown, existingTips: idx.tips, replaceSlug: editingSlug ?? undefined });
       setMsg({
         ok: true,
-        text: `✅ Publiée ! Le site se met à jour automatiquement (commit ${sha.slice(0, 7)}).`,
+        text: `✅ ${editingSlug ? "Modifiée" : "Publiée"} ! Le site se met à jour automatiquement (commit ${sha.slice(0, 7)}).`,
       });
-      setTitle("");
-      setExcerpt("");
-      setMarkdown("");
-      setIcon("");
-      setIconQuery("");
+      setExistingTips((tips) => [meta, ...tips.filter((tip) => tip.slug !== editingSlug)]);
+      resetEditor();
     } catch (e) {
       setMsg({ ok: false, text: `❌ ${e instanceof Error ? e.message : String(e)}` });
     } finally {
@@ -150,9 +202,22 @@ export default function Admin() {
     <main className="mx-auto max-w-5xl px-4 py-10">
       <div className="mb-6 flex items-center justify-between">
         <h1 className="flex items-center gap-2 text-2xl font-black">
-          <i className="bi bi-pencil-square text-redhot-500" aria-hidden="true" /> Nouvelle astuce
+          <i className="bi bi-pencil-square text-redhot-500" aria-hidden="true" /> {editingSlug ? "Modifier une astuce" : "Nouvelle astuce"}
         </h1>
         <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={toggleExistingTips}
+            disabled={busy}
+            className="rounded-xl border border-ink-700 px-4 py-2 text-sm font-semibold text-bone-300 hover:border-redhot-500 disabled:opacity-40"
+          >
+            <i className="bi bi-pencil mr-1.5" aria-hidden="true" />Modifier une astuce
+          </button>
+          {editingSlug && (
+            <button type="button" onClick={resetEditor} className="rounded-xl border border-ink-700 px-4 py-2 text-sm font-semibold text-bone-300 hover:border-redhot-500">
+              Nouvelle astuce
+            </button>
+          )}
           <button
             onClick={() => setPreview(!preview)}
             className="rounded-xl border border-ink-700 px-4 py-2 text-sm font-semibold text-bone-300 hover:border-redhot-500"
@@ -175,12 +240,37 @@ export default function Admin() {
         </div>
       )}
 
+      {showExisting && (
+        <section className="mb-5 rounded-2xl border border-ink-700 bg-ink-850 p-5">
+          <h2 className="text-base font-bold">Choisissez une astuce à modifier</h2>
+          {loadingExisting ? (
+            <p className="mt-3 text-sm text-bone-500">Chargement des astuces…</p>
+          ) : existingTips.length > 0 ? (
+            <div className="mt-3 grid gap-2 sm:grid-cols-2">
+              {existingTips.map((tip) => (
+                <button
+                  type="button"
+                  key={tip.slug}
+                  onClick={() => editTip(tip)}
+                  className="flex items-center gap-3 rounded-xl border border-ink-700 bg-ink-900 p-3 text-left hover:border-redhot-500"
+                >
+                  <i className="bi bi-pencil-square text-redhot-400" aria-hidden="true" />
+                  <span className="min-w-0"><strong className="block truncate text-bone-100">{tip.title}</strong><span className="block truncate text-xs text-bone-500">{tip.category} · {tip.date}</span></span>
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="mt-3 text-sm text-bone-500">Aucune astuce publiée pour le moment.</p>
+          )}
+        </section>
+      )}
+
       {/* Métadonnées */}
       <div className="mb-5 grid gap-4 rounded-2xl border border-ink-700 bg-ink-850 p-5 sm:grid-cols-2">
         <div className="sm:col-span-2">
           <label className="mb-1.5 block text-sm font-semibold text-bone-300">Titre</label>
           <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Ex : 5 raccourcis Git qui font gagner du temps" className={input} />
-          <p className="mt-1 text-xs text-ink-600">slug : <code className="rounded bg-ink-800 px-1">{slug}.md</code></p>
+          <p className="mt-1 text-xs text-ink-600">slug : <code className="rounded bg-ink-800 px-1">{slug}.md</code>{editingSlug && " (conservé pour ne pas casser le lien)"}</p>
         </div>
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-bone-300">Catégorie</label>

@@ -60,10 +60,11 @@ interface PublishArgs {
   meta: TipMeta;
   markdown: string;
   existingTips: TipMeta[];
+  replaceSlug?: string;
 }
 
 /** Publie l'astuce : 2 commits — le .md puis l'index.json régénéré. */
-export async function publishTip({ token, meta, markdown, existingTips }: PublishArgs): Promise<string> {
+export async function publishTip({ token, meta, markdown, existingTips, replaceSlug }: PublishArgs): Promise<string> {
   const headers = {
     Authorization: `Bearer ${token}`,
     Accept: "application/vnd.github+json",
@@ -73,7 +74,7 @@ export async function publishTip({ token, meta, markdown, existingTips }: Publis
     fetch(`https://api.github.com${path}`, { ...init, headers: { ...headers, ...init?.headers } });
 
   // 0. Refuse un slug déjà pris
-  if (existingTips.some((tip) => tip.slug === meta.slug)) {
+  if (existingTips.some((tip) => tip.slug === meta.slug && tip.slug !== replaceSlug)) {
     throw new Error(`Le slug "${meta.slug}" existe déjà, choisissez-en un autre.`);
   }
 
@@ -87,7 +88,9 @@ export async function publishTip({ token, meta, markdown, existingTips }: Publis
   // astuce apparaisse immédiatement dans la liste.
   const indexPath = `${DATA_DIR}/index.json`;
   const baseTree = ref.object.sha;
-  const nextIndex: TipsIndex = { tips: [meta, ...existingTips] };
+  const nextIndex: TipsIndex = {
+    tips: [meta, ...existingTips.filter((tip) => tip.slug !== replaceSlug)],
+  };
 
   // 3. Nouveau tree : ajout du .md + remplacement de index.json
   const newTreeRes = await api(`/repos/${REPO}/git/trees`, {
