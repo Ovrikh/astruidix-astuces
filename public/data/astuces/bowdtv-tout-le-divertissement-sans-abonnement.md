@@ -1,7 +1,5 @@
 # BowdTV — Tout le divertissement, sans abonnement
 
-![Mascotte BowdTV](https://github.com/user-attachments/assets/8a66a9ed-6671-416e-9c21-b6cee144bc9d)
-
 BowdTV réunit dans une seule interface la TV en direct, le sport, les films, les séries et les animés. Une plateforme pensée pour passer instantanément d’un grand match à un film, d’une émission en direct à votre prochaine série.
 
 ## Une offre riche et immédiate
