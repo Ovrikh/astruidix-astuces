@@ -1,14 +1,19 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { PUBLISH_HELP, fetchIndex, publishTip } from "../lib/api";
 import type { TipMeta } from "../types";
 import { slugify } from "../lib/slugify";
 import Markdown from "../components/Markdown";
 
-/** Sélection d'icônes de marque populaires (slug thesvg.org — testés en 200) */
-const ICON_CHOICES = [
-  "", "github", "react", "vite", "typescript", "tailwindcss", "javascript", "python",
-  "linux", "docker", "git", "wordpress", "android", "chrome",
-];
+const THESVG_CATALOG_URL = "https://raw.githubusercontent.com/glincker/thesvg/main/src/data/icons.json";
+const THESVG_ICON_URL = (slug: string) =>
+  `https://cdn.jsdelivr.net/npm/@thesvg/icons/icons/${encodeURIComponent(slug)}.svg`;
+
+type TheSvgIcon = {
+  slug: string;
+  title: string;
+  aliases?: string[];
+  categories?: string[];
+};
 
 const CAT_CHOICES = ["Web", "Linux", "Android", "Outils", "Divers"];
 
@@ -18,6 +23,9 @@ export default function Admin() {
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState(CAT_CHOICES[0]);
   const [icon, setIcon] = useState("");
+  const [iconQuery, setIconQuery] = useState("");
+  const [icons, setIcons] = useState<TheSvgIcon[] | null>(null);
+  const [iconsError, setIconsError] = useState("");
   const [excerpt, setExcerpt] = useState("");
   const [markdown, setMarkdown] = useState("");
   const [preview, setPreview] = useState(false);
@@ -30,6 +38,32 @@ export default function Admin() {
     () => markdown.trim().split(/\s+/).filter(Boolean).length,
     [markdown]
   );
+  const iconResults = useMemo(() => {
+    const query = iconQuery.trim().toLocaleLowerCase();
+    if (!query || !icons) return [];
+    return icons
+      .filter((item) =>
+        [item.title, item.slug, ...(item.aliases ?? []), ...(item.categories ?? [])]
+          .some((value) => value.toLocaleLowerCase().includes(query))
+      )
+      .slice(0, 18);
+  }, [iconQuery, icons]);
+
+  useEffect(() => {
+    if (iconQuery.trim().length < 2 || icons || iconsError) return;
+    const controller = new AbortController();
+    fetch(THESVG_CATALOG_URL, { signal: controller.signal })
+      .then((res) => {
+        if (!res.ok) throw new Error();
+        return res.json() as Promise<TheSvgIcon[]>;
+      })
+      .then((data) => setIcons(data.filter((item) => item.slug && item.title)))
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setIconsError("Le catalogue theSVG est momentanément indisponible.");
+      });
+    return () => controller.abort();
+  }, [iconQuery, icons, iconsError]);
 
   async function unlock() {
     setMsg(null);
@@ -59,7 +93,7 @@ export default function Admin() {
         date,
         excerpt: excerpt.trim() || undefined,
       };
-      const sha = await publishTip({ token, meta, markdown, existingSlugs: idx.tips.map((t) => t.slug) });
+      const sha = await publishTip({ token, meta, markdown, existingTips: idx.tips });
       setMsg({
         ok: true,
         text: `✅ Publiée ! Le site se met à jour automatiquement (commit ${sha.slice(0, 7)}).`,
@@ -68,6 +102,7 @@ export default function Admin() {
       setExcerpt("");
       setMarkdown("");
       setIcon("");
+      setIconQuery("");
     } catch (e) {
       setMsg({ ok: false, text: `❌ ${e instanceof Error ? e.message : String(e)}` });
     } finally {
@@ -154,25 +189,45 @@ export default function Admin() {
           </select>
         </div>
         <div>
-          <label className="mb-1.5 block text-sm font-semibold text-bone-300">Icône de marque (thesvg.org)</label>
-          <div className="flex flex-wrap gap-1.5">
-            {ICON_CHOICES.map((s) => (
-              <button
-                key={s || "none"}
-                onClick={() => setIcon(s)}
-                title={s || "Aucune"}
-                className={`flex h-10 w-10 items-center justify-center rounded-xl border transition ${
-                  icon === s ? "border-redhot-500 bg-redhot-900/50" : "border-ink-700 bg-ink-900 hover:border-ink-600"
-                }`}
-              >
-                {s ? (
-                  <img src={`https://thesvg.org/icons/${s}/default.svg`} alt="" className="h-5 w-5" />
-                ) : (
-                  <i className="bi bi-lightbulb text-ink-600" aria-hidden="true" />
-                )}
-              </button>
-            ))}
-          </div>
+          <label className="mb-1.5 block text-sm font-semibold text-bone-300" htmlFor="icon-search">Icône de marque (theSVG)</label>
+          <input
+            id="icon-search"
+            value={iconQuery}
+            onChange={(e) => {
+              setIconQuery(e.target.value);
+              setIconsError("");
+            }}
+            placeholder="Recherchez une marque : GitHub, Netflix, Discord…"
+            autoComplete="off"
+            className={input}
+          />
+          {icon && (
+            <div className="mt-2 flex items-center gap-2 text-sm text-bone-300">
+              <img src={THESVG_ICON_URL(icon)} alt="" className="h-6 w-6" />
+              <span>Icône choisie : <strong>{icon}</strong></span>
+              <button type="button" onClick={() => { setIcon(""); setIconQuery(""); }} className="ml-auto text-xs text-redhot-400 hover:underline">Retirer</button>
+            </div>
+          )}
+          {iconQuery.trim().length >= 2 && !icons && !iconsError && <p className="mt-2 text-xs text-bone-500">Chargement du catalogue theSVG…</p>}
+          {iconsError && <p className="mt-2 text-xs text-redhot-400">{iconsError}</p>}
+          {icons && iconQuery.trim().length >= 2 && (
+            <div className="mt-2 max-h-64 overflow-y-auto rounded-xl border border-ink-700 bg-ink-900 p-1">
+              {iconResults.length > 0 ? iconResults.map((item) => (
+                <button
+                  type="button"
+                  key={item.slug}
+                  onClick={() => { setIcon(item.slug); setIconQuery(item.title); }}
+                  className={`flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm hover:bg-ink-800 ${icon === item.slug ? "bg-redhot-900/40" : ""}`}
+                >
+                  <img src={THESVG_ICON_URL(item.slug)} alt="" className="h-6 w-6 shrink-0" />
+                  <span className="min-w-0"><strong className="block truncate text-bone-100">{item.title}</strong><span className="block truncate text-xs text-bone-500">{item.slug}</span></span>
+                </button>
+              )) : (
+                <p className="px-3 py-2 text-sm text-bone-500">Aucune icône trouvée. Essayez un autre nom.</p>
+              )}
+            </div>
+          )}
+          <p className="mt-2 text-xs text-ink-600">Les résultats proviennent du catalogue officiel <a className="text-redhot-400 hover:underline" href="https://thesvg.org" target="_blank" rel="noreferrer">theSVG</a>. Cliquez sur un résultat pour le sélectionner.</p>
         </div>
         <div className="sm:col-span-2">
           <label className="mb-1.5 block text-sm font-semibold text-bone-300">Résumé (affiché sur la carte)</label>

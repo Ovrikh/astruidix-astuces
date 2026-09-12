@@ -59,11 +59,11 @@ interface PublishArgs {
   token: string;
   meta: TipMeta;
   markdown: string;
-  existingSlugs: string[];
+  existingTips: TipMeta[];
 }
 
 /** Publie l'astuce : 2 commits — le .md puis l'index.json régénéré. */
-export async function publishTip({ token, meta, markdown, existingSlugs }: PublishArgs): Promise<string> {
+export async function publishTip({ token, meta, markdown, existingTips }: PublishArgs): Promise<string> {
   const headers = {
     Authorization: `Bearer ${token}`,
     Accept: "application/vnd.github+json",
@@ -73,7 +73,7 @@ export async function publishTip({ token, meta, markdown, existingSlugs }: Publi
     fetch(`https://api.github.com${path}`, { ...init, headers: { ...headers, ...init?.headers } });
 
   // 0. Refuse un slug déjà pris
-  if (existingSlugs.includes(meta.slug)) {
+  if (existingTips.some((tip) => tip.slug === meta.slug)) {
     throw new Error(`Le slug "${meta.slug}" existe déjà, choisissez-en un autre.`);
   }
 
@@ -82,15 +82,12 @@ export async function publishTip({ token, meta, markdown, existingSlugs }: Publi
   if (!refRes.ok) throw new Error("Impossible de lire la branche (token invalide ?)");
   const ref = (await refRes.json()) as { object: { sha: string } };
 
-  // 2. SHA de l'arbre et de l'index.json existant
-  const treeRes = await api(`/repos/${REPO}/git/trees/${ref.object.sha}?recursive=1`);
-  if (!treeRes.ok) throw new Error("Impossible de lire l'arbre du dépôt");
-  const tree = (await treeRes.json()) as {
-    tree: Array<{ path: string; sha: string | null }>;
-  };
+  // 2. Nouveau tree : ajout du .md + régénération de l'index.
+  // Le contenu est envoyé, pas seulement le SHA précédent, afin que la nouvelle
+  // astuce apparaisse immédiatement dans la liste.
   const indexPath = `${DATA_DIR}/index.json`;
-  const entry = tree.tree.find((e) => e.path === indexPath);
   const baseTree = ref.object.sha;
+  const nextIndex: TipsIndex = { tips: [meta, ...existingTips] };
 
   // 3. Nouveau tree : ajout du .md + remplacement de index.json
   const newTreeRes = await api(`/repos/${REPO}/git/trees`, {
@@ -99,7 +96,7 @@ export async function publishTip({ token, meta, markdown, existingSlugs }: Publi
       base_tree: baseTree,
       tree: [
         { path: `${DATA_DIR}/${meta.slug}.md`, mode: "100644", type: "blob", content: markdown },
-        { path: indexPath, mode: "100644", type: "blob", sha: entry?.sha ?? null },
+        { path: indexPath, mode: "100644", type: "blob", content: `${JSON.stringify(nextIndex, null, 2)}\n` },
       ],
     }),
   });

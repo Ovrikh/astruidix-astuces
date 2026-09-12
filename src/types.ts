@@ -4,7 +4,7 @@ export interface TipMeta {
   title: string;
   /** Nom de catégorie affiché, ex : "Web", "Linux", "Android" */
   category: string;
-  /** Slug d'icône de marque sur https://thesvg.org — https://thesvg.org/icons/<icon>/default.svg */
+  /** Slug validé dans le catalogue officiel theSVG. */
   icon?: string;
   /** "aaaa-mm-jj" */
   date: string;

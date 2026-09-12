@@ -1,4 +1,5 @@
 import { Link } from "react-router-dom";
+import { useState } from "react";
 import type { TipMeta } from "../types";
 
 const catColors: Record<string, string> = {
@@ -9,13 +10,15 @@ const catColors: Record<string, string> = {
 };
 
 export function BrandIcon({ slug, className }: { slug?: string; className?: string }) {
-  if (!slug) return <i className="bi bi-lightbulb text-redhot-400" />;
+  const [failed, setFailed] = useState(false);
+  if (!slug || failed) return <i className="bi bi-lightbulb text-redhot-400" aria-label="Icône par défaut" />;
   return (
     <img
-      src={`https://thesvg.org/icons/${slug}/default.svg`}
+      src={`https://cdn.jsdelivr.net/npm/@thesvg/icons/icons/${encodeURIComponent(slug)}.svg`}
       alt=""
       loading="lazy"
       className={className ?? "h-5 w-5"}
+      onError={() => setFailed(true)}
     />
   );
 }
