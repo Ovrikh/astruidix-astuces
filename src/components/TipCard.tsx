@@ -7,6 +7,8 @@ const catColors: Record<string, string> = {
   Linux: "border-ink-600 bg-ink-800 text-bone-100",
   Android: "border-emerald-500/30 bg-emerald-500/10 text-emerald-400",
   Outils: "border-sky-500/30 bg-sky-500/10 text-sky-400",
+  Divertissement: "border-violet-500/35 bg-violet-500/10 text-violet-700 dark:text-violet-300",
+  Divers: "border-amber-500/35 bg-amber-500/10 text-amber-700 dark:text-amber-300",
 };
 
 export function BrandIcon({ slug, className }: { slug?: string; className?: string }) {

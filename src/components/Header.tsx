@@ -50,7 +50,7 @@ export default function Header() {
             href="https://github.com/Ovrikh/astruidix-astuces"
             target="_blank"
             rel="noopener"
-            className="ml-1 flex items-center gap-1.5 rounded-lg border border-ink-700 px-3 py-2 text-bone-300 transition hover:border-redhot-500 hover:text-white"
+            className="ml-1 flex items-center gap-1.5 rounded-lg border border-ink-700 px-3 py-2 text-bone-300 transition hover:border-redhot-500 hover:text-bone-100"
           >
             <i className="bi bi-github" aria-hidden="true" />
             <span className="hidden sm:inline">GitHub</span>
