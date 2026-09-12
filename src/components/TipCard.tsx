@@ -14,7 +14,7 @@ export function BrandIcon({ slug, className }: { slug?: string; className?: stri
   if (!slug || failed) return <i className="bi bi-lightbulb text-redhot-400" aria-label="Icône par défaut" />;
   return (
     <img
-      src={`https://cdn.jsdelivr.net/npm/@thesvg/icons/icons/${encodeURIComponent(slug)}.svg`}
+      src={`https://thesvg.org/icons/${encodeURIComponent(slug)}/default.svg`}
       alt=""
       loading="lazy"
       className={className ?? "h-5 w-5"}

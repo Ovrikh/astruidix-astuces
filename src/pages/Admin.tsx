@@ -6,7 +6,7 @@ import Markdown from "../components/Markdown";
 
 const THESVG_CATALOG_URL = "https://raw.githubusercontent.com/glincker/thesvg/main/src/data/icons.json";
 const THESVG_ICON_URL = (slug: string) =>
-  `https://cdn.jsdelivr.net/npm/@thesvg/icons/icons/${encodeURIComponent(slug)}.svg`;
+  `https://thesvg.org/icons/${encodeURIComponent(slug)}/default.svg`;
 
 type TheSvgIcon = {
   slug: string;
